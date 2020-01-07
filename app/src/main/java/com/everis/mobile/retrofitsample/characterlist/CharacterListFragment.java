@@ -8,19 +8,21 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.fragment.app.ListFragment;
 
 import com.everis.mobile.retrofitsample.R;
 import com.everis.mobile.retrofitsample.characterdetail.CharacterDetailActivity;
-import com.everis.mobile.retrofitsample.model.Api;
-import com.everis.mobile.retrofitsample.model.MarvelCharacter;
+import com.everis.mobile.retrofitsample.retrofit.MarvelApi;
+import com.everis.mobile.retrofitsample.retrofit.entities.Character;
+import com.everis.mobile.retrofitsample.retrofit.entities.CharacterDataWrapper;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import java.util.List;
 
-import java.util.ArrayList;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class CharacterListFragment extends ListFragment {
 
@@ -34,7 +36,7 @@ public class CharacterListFragment extends ListFragment {
     private static final String URL_ARG_HASH = "hash=e3c884ef86d9e64e2043be7b9faae261"; // MD5(timestamp + clave_privada + clave_pública)
     private static final String URL = BASE_URL + "?" + URL_ARG_LIMIT + "&" + URL_ARG_NAME_STARTS_WITH + "&" + URL_ARG_APIKEY + "&" + URL_ARG_TIMESTAMP + "&" + URL_ARG_HASH;
 
-    private ArrayList<MarvelCharacter> mCharacterList;
+    private List<Character> mCharacterList;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -46,35 +48,37 @@ public class CharacterListFragment extends ListFragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        String url = String.format(URL, getArguments().getString(ARGS_LETTER));
+//        String url = String.format(URL, getArguments().getString(ARGS_LETTER));
+//
+//        new Api.ApiCallGet(new Api.ApiCallListener() {
+//            @Override
+//            public void success(String response) {
+//                try {
+//                    mCharacterList = new ArrayList<>();
+//
+//                    JSONObject json = new JSONObject(response);
+//                    JSONArray characterListJson = json.getJSONObject("data").getJSONArray("results");
+//                    int characterCount = characterListJson.length();
+//                    for (int i = 0; i < characterCount; i++) {
+//                        JSONObject characterJson = characterListJson.getJSONObject(i);
+//                        MarvelCharacter character = new MarvelCharacter();
+//                        character.setName(characterJson.getString("name"));
+//                        character.setDescription(characterJson.getString("description"));
+//                        JSONObject thumbnailJson = characterJson.getJSONObject("thumbnail");
+//                        character.setThumbnailUrl(thumbnailJson.getString("path"));
+//                        character.setThumbnailExtension(thumbnailJson.getString("extension"));
+//                        mCharacterList.add(character);
+//                    }
+//
+//                    setListAdapter(new CharacterAdapter(mCharacterList));
+//                } catch (JSONException e) {
+//                    e.printStackTrace();
+//                }
+//
+//            }
+//        }).execute(url);
 
-        new Api.ApiCallGet(new Api.ApiCallListener() {
-            @Override
-            public void success(String response) {
-                try {
-                    mCharacterList = new ArrayList<>();
-
-                    JSONObject json = new JSONObject(response);
-                    JSONArray characterListJson = json.getJSONObject("data").getJSONArray("results");
-                    int characterCount = characterListJson.length();
-                    for (int i = 0; i < characterCount; i++) {
-                        JSONObject characterJson = characterListJson.getJSONObject(i);
-                        MarvelCharacter character = new MarvelCharacter();
-                        character.setName(characterJson.getString("name"));
-                        character.setDescription(characterJson.getString("description"));
-                        JSONObject thumbnailJson = characterJson.getJSONObject("thumbnail");
-                        character.setThumbnailUrl(thumbnailJson.getString("path"));
-                        character.setThumbnailExtension(thumbnailJson.getString("extension"));
-                        mCharacterList.add(character);
-                    }
-
-                    setListAdapter(new CharacterAdapter(mCharacterList));
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-
-            }
-        }).execute(url);
+        getCharacterList(getArguments().getString(ARGS_LETTER));
 
         getListView().setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -86,11 +90,41 @@ public class CharacterListFragment extends ListFragment {
         });
     }
 
+    private void getCharacterList(String startingLetter) {
+        // Usando solo Retrofit
+//        new MarvelApi().getMarvelApiService().getCharacterList(startingLetter).enqueue(new Callback<String>() {
+//            @Override
+//            public void onResponse(Call<String> call, Response<String> response) {
+//                Toast.makeText(getActivity(), "JSON recibido: " + response.body(), Toast.LENGTH_LONG).show();
+//            }
+//
+//            @Override
+//            public void onFailure(Call<String> call, Throwable t) {
+//                Toast.makeText(getActivity(), "Error al hacer la llamada", Toast.LENGTH_LONG).show();
+//            }
+//        });
+
+        // Usando Retrofit con Moshi
+        new MarvelApi().getMarvelApiService().getCharacterList(startingLetter).enqueue(new Callback<CharacterDataWrapper>() {
+            @Override
+            public void onResponse(Call<CharacterDataWrapper> call, Response<CharacterDataWrapper> response) {
+                mCharacterList = response.body().getData().getResults();
+//                Toast.makeText(getActivity(), "JSON recibido: " + mCharacterList.size() + " items", Toast.LENGTH_SHORT).show();
+                setListAdapter(new CharacterAdapter(mCharacterList));
+            }
+
+            @Override
+            public void onFailure(Call<CharacterDataWrapper> call, Throwable t) {
+                Toast.makeText(getActivity(), "Error al hacer la llamada", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
     private class CharacterAdapter extends BaseAdapter {
 
-        private ArrayList<MarvelCharacter> mCharacterList;
+        private List<Character> mCharacterList;
 
-        public CharacterAdapter(ArrayList<MarvelCharacter> characterList) {
+        public CharacterAdapter(List<Character> characterList) {
             mCharacterList = characterList;
         }
 
@@ -100,7 +134,7 @@ public class CharacterListFragment extends ListFragment {
         }
 
         @Override
-        public MarvelCharacter getItem(int position) {
+        public Character getItem(int position) {
             return mCharacterList.get(position);
         }
 
